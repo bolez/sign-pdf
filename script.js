@@ -149,7 +149,7 @@ function handleSignatureUpload(event) {
     reader.readAsDataURL(file);
 }
 
-// Process Signature (Remove Background)
+// Process Signature (Polished Background Removal)
 function processSignatureImage(img, filename) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -160,10 +160,30 @@ function processSignatureImage(img, filename) {
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
+    // Polished approach: Non-linear fade to hide shadows
     for (let i = 0; i < data.length; i += 4) {
-        const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
-        if (brightness > 200) data[i + 3] = 0;
-        else if (brightness > 150) data[i + 3] = Math.floor((200 - brightness) * 5);
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        // Calculate brightness (0-255)
+        const brightness = (r + g + b) / 3;
+
+        // Remove light backgrounds, keep dark signature ink
+        if (brightness > 170) {
+            // Very light - fully transparent
+            data[i + 3] = 0;
+        } else if (brightness > 130) {
+            // Gradient zone (130-170)
+            const transparency = (brightness - 130) / 40; // 0 to 1
+
+            // NON-LINEAR FADE: Fade out shadows much faster
+            // Using cubic curve: (1-t)^3 pushes light grays to near-zero opacity
+            const factor = Math.pow(1 - transparency, 3);
+
+            data[i + 3] = Math.floor(factor * 255);
+        }
+        // brightness <= 130: Keep original (dark signature ink)
     }
 
     ctx.putImageData(imageData, 0, 0);
